@@ -5,21 +5,30 @@
 
 @section('content')
 <div class="card">
+
+    <!-- Card Header -->
     <div class="card-header d-flex justify-content-between align-items-center">
         <h3 class="card-title">Daftar Peminjaman</h3>
-        <a href="{{ route('loans.create') }}" class="btn btn-primary btn-sm">
-            <i class="fas fa-plus"></i> Pinjam Buku
-        </a>
+
+        <div class="card-tools">
+            <a href="{{ route('loans.create') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus"></i> Pinjam Buku
+            </a>
+        </div>
     </div>
+
+    <!-- Card Body -->
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
                         <th>No</th>
+
                         @if(Auth::user()->isAdmin())
                             <th>Member</th>
                         @endif
+
                         <th>Buku</th>
                         <th>Tgl Pinjam</th>
                         <th>Tgl Jatuh Tempo</th>
@@ -28,50 +37,81 @@
                         <th>Aksi</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     @forelse($loans as $key => $loan)
                         <tr>
                             <td>{{ $loans->firstItem() + $key }}</td>
+
                             @if(Auth::user()->isAdmin())
                                 <td>{{ $loan->user->name }}</td>
                             @endif
+
                             <td>{{ $loan->book->judul }}</td>
                             <td>{{ $loan->borrow_date->format('d/m/Y') }}</td>
                             <td>{{ $loan->due_date->format('d/m/Y') }}</td>
+
                             <td>
                                 <span class="badge badge-{{ $loan->status == 'dipinjam' ? 'warning' : ($loan->status == 'dikembalikan' ? 'success' : 'danger') }}">
                                     {{ ucfirst($loan->status) }}
                                 </span>
                             </td>
+
                             <td>
                                 @if($loan->fine_amount > 0)
                                     Rp {{ number_format($loan->fine_amount, 0, ',', '.') }}
+
+                                    @php
+                                        $hariTelat = $loan->getDaysLate();
+                                    @endphp
+
+                                    @if($hariTelat > 0)
+                                        <br>
+                                        <small class="text-danger">
+                                            ({{ $hariTelat }} hari terlambat)
+                                        </small>
+                                    @endif
                                 @else
                                     -
                                 @endif
                             </td>
+
                             <td>
+                                {{-- Tombol Detail --}}
                                 <a href="{{ route('loans.show', $loan->id) }}" class="btn btn-info btn-sm">
                                     <i class="fas fa-eye"></i>
                                 </a>
+
+                                {{-- Tombol Kembalikan --}}
                                 @if($loan->status != 'dikembalikan')
                                     <form action="{{ route('loans.return', $loan->id) }}" method="POST" class="d-inline">
                                         @csrf
-                                        <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Yakin ingin mengembalikan buku ini?')">
+                                        <button
+                                            type="submit"
+                                            class="btn btn-success btn-sm"
+                                            onclick="return confirm('Yakin ingin mengembalikan buku ini?')">
                                             <i class="fas fa-undo"></i>
                                         </button>
                                     </form>
                                 @endif
+
+                                {{-- Tombol Bayar Denda (Member) --}}
                                 @if($loan->fine_amount > 0 && $loan->payment_status == 'belum_bayar' && Auth::user()->isMember())
                                     <a href="{{ route('denda.payment', $loan->id) }}" class="btn btn-primary btn-sm">
-                                        <i class="fas fa-qrcode"></i>
+                                        <i class="fas fa-money-bill-wave"></i> Bayar
                                     </a>
                                 @endif
+
+                                {{-- Tombol Hapus (Admin) --}}
                                 @if(Auth::user()->isAdmin() && $loan->status != 'dipinjam')
                                     <form action="{{ route('loans.destroy', $loan->id) }}" method="POST" class="d-inline">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus data peminjaman?')">
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-danger btn-sm"
+                                            onclick="return confirm('Hapus data peminjaman?')">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
@@ -80,13 +120,19 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ Auth::user()->isAdmin() ? 8 : 7 }}" class="text-center">Tidak ada data peminjaman</td>
+                            <td colspan="{{ Auth::user()->isAdmin() ? 8 : 7 }}" class="text-center">
+                                Tidak ada data peminjaman.
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
-        {{ $loans->links() }}
+
+        <div class="mt-3">
+            {{ $loans->links() }}
+        </div>
     </div>
+
 </div>
 @endsection
