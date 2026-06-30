@@ -7,7 +7,7 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h3 class="card-title">Daftar Peminjaman</h3>
-        <a href="{{ route('loans.create') }}" class="btn btn-primary btn-sm">
+        <a href="{{ route('loans.create') }}" class="btn btn-primary btn-sm ms-auto">
             <i class="fas fa-plus"></i> Pinjam Buku
         </a>
     </div>

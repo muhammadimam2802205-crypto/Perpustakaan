@@ -63,4 +63,4 @@
             </div>
         </li>
     </ul>
-</nav>resources/views/partials/sidebar.blade.php
+</nav>

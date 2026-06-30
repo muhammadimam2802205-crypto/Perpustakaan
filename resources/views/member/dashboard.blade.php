@@ -5,6 +5,7 @@
 
 @section('content')
 <div class="row">
+    <!-- Buku Dipinjam -->
     <div class="col-lg-3 col-6">
         <div class="small-box bg-info">
             <div class="inner">
@@ -16,7 +17,8 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Total Denda -->
     <div class="col-lg-3 col-6">
         <div class="small-box bg-warning">
             <div class="inner">
@@ -28,9 +30,23 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Sudah Dikembalikan (BARU) -->
     <div class="col-lg-3 col-6">
         <div class="small-box bg-success">
+            <div class="inner">
+                <h3>{{ $historyLoans->where('status', 'dikembalikan')->count() }}</h3>
+                <p>Sudah Dikembalikan</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riwayat Peminjaman -->
+    <div class="col-lg-3 col-6">
+        <div class="small-box bg-primary">
             <div class="inner">
                 <h3>{{ $historyLoans->count() }}</h3>
                 <p>Riwayat Peminjaman</p>
@@ -42,6 +58,7 @@
     </div>
 </div>
 
+{{-- Daftar Buku yang Sedang Dipinjam --}}
 <div class="row">
     <div class="col-md-12">
         <div class="card">
@@ -119,6 +136,7 @@
     </div>
 </div>
 
+{{-- Riwayat Peminjaman --}}
 <div class="row">
     <div class="col-md-12">
         <div class="card">
@@ -178,6 +196,7 @@
     </div>
 </div>
 
+{{-- Notifikasi Denda --}}
 @if($totalFines > 0)
 <div class="row">
     <div class="col-md-12">
