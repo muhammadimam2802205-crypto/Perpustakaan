@@ -12,16 +12,29 @@ class DendaController extends Controller
         $user = Auth::user();
         
         if ($user->isAdmin()) {
-            $loans = Loan::where('fine_amount', '>', 0)
-                        ->where('payment_status', 'belum_bayar')
-                        ->with(['user', 'book'])
-                        ->get();
+            $loans = Loan::where(function ($query) {
+                $query->where('fine_amount', '>', 0)
+                      ->orWhere('status', 'terlambat');
+            })->where(function ($query) {
+                $query->whereNull('payment_status')
+                      ->orWhere('payment_status', 'belum_bayar');
+            })->with(['user', 'book'])->get();
         } else {
             $loans = Loan::where('user_id', $user->id)
-                        ->where('fine_amount', '>', 0)
-                        ->where('payment_status', 'belum_bayar')
+                        ->where(function ($query) {
+                            $query->where('fine_amount', '>', 0)
+                                  ->orWhere('status', 'terlambat');
+                        })
+                        ->where(function ($query) {
+                            $query->whereNull('payment_status')
+                                  ->orWhere('payment_status', 'belum_bayar');
+                        })
                         ->with(['book'])
                         ->get();
+        }
+
+        foreach ($loans as $loan) {
+            $loan->updateStatus();
         }
 
         return view('denda.index', compact('loans'));

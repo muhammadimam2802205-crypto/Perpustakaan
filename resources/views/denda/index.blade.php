@@ -16,6 +16,7 @@
                         <th>No</th>
                         <th>Member</th>
                         <th>Buku</th>
+                        <th>Status</th>
                         <th>Jumlah Denda</th>
                         <th>Status Pembayaran</th>
                         <th>Aksi</th>
@@ -27,12 +28,27 @@
                         <td>{{ $key + 1 }}</td>
                         <td>{{ $loan->user->name }}</td>
                         <td>{{ $loan->book->judul }}</td>
-                        <td class="text-danger">Rp {{ number_format($loan->fine_amount, 0, ',', '.') }}</td>
+                        <td>
+                            <span class="badge badge-{{ $loan->status == 'terlambat' ? 'danger' : 'warning' }}">
+                                {{ $loan->status == 'terlambat' ? 'Terlambat' : 'Aktif' }}
+                            </span>
+                        </td>
+                        <td class="text-danger">
+                            Rp {{ number_format($loan->fine_amount, 0, ',', '.') }}
+                            @php
+                                $hariTelat = $loan->getDaysLate();
+                            @endphp
+                            @if($hariTelat > 0)
+                                <br><small class="text-muted">({{ $hariTelat }} hari terlambat)</small>
+                            @endif
+                        </td>
                         <td>
                             @if($loan->payment_status == 'belum_bayar')
                                 <span class="badge badge-danger">Belum Bayar</span>
-                            @else
+                            @elseif($loan->payment_status == 'lunas')
                                 <span class="badge badge-success">Lunas</span>
+                            @else
+                                <span class="badge badge-secondary">Belum Ada</span>
                             @endif
                         </td>
                         <td>

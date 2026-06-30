@@ -43,7 +43,12 @@
                                 {{ $transaction->status }}
                             </span>
                         </td>
-                        <td>Rp {{ number_format($transaction->denda, 0, ',', '.') }}</td>
+                        <td>
+                            Rp {{ number_format($transaction->denda, 0, ',', '.') }}
+                            @if($transaction->denda > 0 && $transaction->tanggal_kembali_aktual)
+                                <br><small class="text-danger">({{ (int) $transaction->tanggal_kembali->diffInDays($transaction->tanggal_kembali_aktual) }} hari terlambat)</small>
+                            @endif
+                        </td>
                         <td>
                             @if($transaction->status == 'dipinjam')
                                 <form action="{{ route('transactions.return', $transaction) }}" method="POST" class="d-inline">

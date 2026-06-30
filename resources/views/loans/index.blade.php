@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Daftar Peminjaman')
 @section('page-title', '📦 Data Peminjaman')
@@ -7,7 +7,7 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h3 class="card-title">Daftar Peminjaman</h3>
-        <a href="{{ route('loans.create') }}" class="btn btn-primary btn-sm">
+        <a href="{{ route('loans.create') }}" class="btn btn-primary btn-sm ms-auto">
             <i class="fas fa-plus"></i> Pinjam Buku
         </a>
     </div>
@@ -46,6 +46,12 @@
                             <td>
                                 @if($loan->fine_amount > 0)
                                     Rp {{ number_format($loan->fine_amount, 0, ',', '.') }}
+                                    @php
+                                        $hariTelat = $loan->getDaysLate();
+                                    @endphp
+                                    @if($hariTelat > 0)
+                                        <br><small class="text-danger">({{ $hariTelat }} hari terlambat)</small>
+                                    @endif
                                 @else
                                     -
                                 @endif
