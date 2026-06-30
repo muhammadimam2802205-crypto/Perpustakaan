@@ -41,10 +41,20 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'url' => env('APP_URL') . '/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
+        ],
+
+        // ============ DISK UNTUK UPLOAD COVER ============
+        'covers' => [
+            'driver' => 'local',
+            'root' => public_path('uploads/covers'),
+            'url' => env('APP_URL') . '/uploads/covers',
+            'visibility' => 'public',
+            'throw' => true, // Throw exception if error
+            'report' => true,
         ],
 
         's3' => [
@@ -75,6 +85,8 @@ return [
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
+        // Jika menggunakan storage/public, tambahkan link ini
+        // public_path('uploads') => storage_path('app/public/uploads'),
     ],
 
 ];

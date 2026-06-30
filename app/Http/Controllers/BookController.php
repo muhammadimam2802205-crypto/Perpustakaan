@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Book;
@@ -6,6 +7,8 @@ use App\Models\Category;
 use App\Services\BookApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class BookController extends Controller
 {
@@ -19,9 +22,22 @@ class BookController extends Controller
     /**
      * Display a listing of the books.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $books = Book::with('category')->paginate(10);
+        $query = Book::with('category');
+        
+        // Search functionality
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('judul', 'LIKE', "%{$search}%")
+                  ->orWhere('penulis', 'LIKE', "%{$search}%")
+                  ->orWhere('kode_buku', 'LIKE', "%{$search}%");
+            });
+        }
+        
+        $books = $query->paginate(10);
+        
         return view('books.index', compact('books'));
     }
 
@@ -39,32 +55,59 @@ class BookController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'judul' => 'required|string|max:255',
-            'penulis' => 'required|string|max:255',
-            'penerbit' => 'nullable|string|max:255',
-            'tahun_terbit' => 'nullable|integer|min:1900|max:' . date('Y'),
-            'kategori_id' => 'nullable|exists:categories,id',
-            'stok' => 'required|integer|min:1',
-            'deskripsi' => 'nullable|string',
-            'cover' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
-        ]);
+        try {
+            // Validasi
+            $validator = Validator::make($request->all(), [
+                'judul' => 'required|string|max:255',
+                'penulis' => 'required|string|max:255',
+                'penerbit' => 'nullable|string|max:255',
+                'tahun_terbit' => 'nullable|integer|min:1900|max:' . date('Y'),
+                'kategori_id' => 'nullable|exists:categories,id',
+                'stok' => 'required|integer|min:1',
+                'deskripsi' => 'nullable|string',
+                'cover' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048'
+            ]);
 
-        $data = $request->all();
-        $data['kode_buku'] = 'BK-' . strtoupper(Str::random(8));
-        $data['available_stock'] = $request->stok;
+            if ($validator->fails()) {
+                return redirect()->back()
+                    ->withErrors($validator)
+                    ->withInput();
+            }
 
-        if ($request->hasFile('cover')) {
-            $file = $request->file('cover');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads/covers'), $filename);
-            $data['cover'] = 'uploads/covers/' . $filename;
+            // Prepare data
+            $data = $validator->validated();
+            $data['kode_buku'] = 'BK-' . strtoupper(Str::random(8));
+            $data['available_stock'] = $request->stok;
+
+            // Handle cover upload
+            if ($request->hasFile('cover')) {
+                $coverPath = $this->uploadCover($request->file('cover'));
+                if ($coverPath) {
+                    $data['cover'] = $coverPath;
+                }
+            }
+
+            // Create book
+            $book = Book::create($data);
+
+            return redirect()->route('books.index')
+                ->with('success', 'Buku "' . $book->judul . '" berhasil ditambahkan.');
+
+        } catch (\Exception $e) {
+            Log::error('Error creating book: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+                ->withInput();
         }
+    }
 
-        Book::create($data);
-
-        return redirect()->route('books.index')
-            ->with('success', 'Buku berhasil ditambahkan.');
+    /**
+     * Display the specified book.
+     */
+    public function show($id)
+    {
+        $book = Book::with('category', 'loans')->findOrFail($id);
+        return view('books.show', compact('book'));
     }
 
     /**
@@ -81,39 +124,53 @@ class BookController extends Controller
      */
     public function update(Request $request, Book $book)
     {
-        $request->validate([
-            'judul' => 'required|string|max:255',
-            'penulis' => 'required|string|max:255',
-            'penerbit' => 'nullable|string|max:255',
-            'tahun_terbit' => 'nullable|integer|min:1900|max:' . date('Y'),
-            'kategori_id' => 'nullable|exists:categories,id',
-            'stok' => 'required|integer|min:0',
-            'deskripsi' => 'nullable|string',
-            'cover' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
-        ]);
+        try {
+            // Validasi
+            $validator = Validator::make($request->all(), [
+                'judul' => 'required|string|max:255',
+                'penulis' => 'required|string|max:255',
+                'penerbit' => 'nullable|string|max:255',
+                'tahun_terbit' => 'nullable|integer|min:1900|max:' . date('Y'),
+                'kategori_id' => 'nullable|exists:categories,id',
+                'stok' => 'required|integer|min:0',
+                'deskripsi' => 'nullable|string',
+                'cover' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048'
+            ]);
 
-        $data = $request->all();
-
-        // Update available_stock jika stok berubah
-        if ($request->has('stok')) {
-            $data['available_stock'] = $request->stok;
-        }
-
-        if ($request->hasFile('cover')) {
-            if ($book->cover && file_exists(public_path($book->cover))) {
-                unlink(public_path($book->cover));
+            if ($validator->fails()) {
+                return redirect()->back()
+                    ->withErrors($validator)
+                    ->withInput();
             }
 
-            $file = $request->file('cover');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads/covers'), $filename);
-            $data['cover'] = 'uploads/covers/' . $filename;
+            // Prepare data
+            $data = $validator->validated();
+            $data['available_stock'] = $request->stok;
+
+            // Handle cover upload
+            if ($request->hasFile('cover')) {
+                // Delete old cover
+                $this->deleteCover($book);
+                
+                // Upload new cover
+                $coverPath = $this->uploadCover($request->file('cover'));
+                if ($coverPath) {
+                    $data['cover'] = $coverPath;
+                }
+            }
+
+            // Update book
+            $book->update($data);
+
+            return redirect()->route('books.index')
+                ->with('success', 'Buku "' . $book->judul . '" berhasil diupdate.');
+
+        } catch (\Exception $e) {
+            Log::error('Error updating book: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+                ->withInput();
         }
-
-        $book->update($data);
-
-        return redirect()->route('books.index')
-            ->with('success', 'Buku berhasil diupdate.');
     }
 
     /**
@@ -121,14 +178,44 @@ class BookController extends Controller
      */
     public function destroy(Book $book)
     {
-        if ($book->cover && file_exists(public_path($book->cover))) {
-            unlink(public_path($book->cover));
+        try {
+            // Delete cover
+            $this->deleteCover($book);
+            
+            // Delete book
+            $book->delete();
+
+            return redirect()->route('books.index')
+                ->with('success', 'Buku berhasil dihapus.');
+
+        } catch (\Exception $e) {
+            Log::error('Error deleting book: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
+    }
 
-        $book->delete();
+    /**
+     * Remove book cover only.
+     */
+    public function removeCover(Book $book)
+    {
+        try {
+            $this->deleteCover($book);
+            $book->update(['cover' => null]);
 
-        return redirect()->route('books.index')
-            ->with('success', 'Buku berhasil dihapus.');
+            return response()->json([
+                'success' => true,
+                'message' => 'Cover berhasil dihapus'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error removing cover: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus cover'
+            ], 500);
+        }
     }
 
     /**
@@ -143,19 +230,25 @@ class BookController extends Controller
             return response()->json(['error' => 'Book API service not available'], 500);
         }
 
-        if ($isbn) {
-            $results = $this->bookApi->searchByISBN($isbn);
-        } elseif ($q) {
-            $results = $this->bookApi->searchByTitle($q);
-        } else {
-            return response()->json(['error' => 'Query or ISBN required'], 400);
-        }
+        try {
+            if ($isbn) {
+                $results = $this->bookApi->searchByISBN($isbn);
+            } elseif ($q) {
+                $results = $this->bookApi->searchByTitle($q);
+            } else {
+                return response()->json(['error' => 'Query or ISBN required'], 400);
+            }
 
-        if (!$results) {
-            return response()->json(['items' => []]);
-        }
+            if (!$results) {
+                return response()->json(['items' => []]);
+            }
 
-        return response()->json($results);
+            return response()->json($results);
+
+        } catch (\Exception $e) {
+            Log::error('Error searching API: ' . $e->getMessage());
+            return response()->json(['error' => 'API search failed'], 500);
+        }
     }
 
     /**
@@ -166,52 +259,98 @@ class BookController extends Controller
         $categories = Category::all();
         return view('books.import', compact('categories'));
     }
-    /**
-     * Display the specified book.
-     */
-    public function show($id)
-    {
-        $book = Book::with('category')->findOrFail($id);
-        return view('books.show', compact('book'));
-    }
+
     /**
      * Import book from API.
      */
     public function importFromApi(Request $request)
     {
-        $request->validate([
-            'api_id' => 'required|string',
-            'judul' => 'required|string',
-            'penulis' => 'required|string',
-            'penerbit' => 'nullable|string',
-            'tahun_terbit' => 'nullable|integer',
-            'kategori_id' => 'nullable|exists:categories,id',
-            'deskripsi' => 'nullable|string',
-            'stok' => 'required|integer|min:1'
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'api_id' => 'required|string',
+                'judul' => 'required|string',
+                'penulis' => 'required|string',
+                'penerbit' => 'nullable|string',
+                'tahun_terbit' => 'nullable|integer',
+                'kategori_id' => 'nullable|exists:categories,id',
+                'deskripsi' => 'nullable|string',
+                'stok' => 'required|integer|min:1'
+            ]);
 
-        $book = Book::create([
-            'kode_buku' => 'BK-' . strtoupper(Str::random(8)),
-            'judul' => $request->judul,
-            'penulis' => $request->penulis,
-            'penerbit' => $request->penerbit,
-            'tahun_terbit' => $request->tahun_terbit,
-            'kategori_id' => $request->kategori_id,
-            'deskripsi' => $request->deskripsi,
-            'stok' => $request->stok,
-            'available_stock' => $request->stok
-        ]);
-
-        // Download cover dari API jika ada dan bookApi tersedia
-        if ($request->cover_url && $this->bookApi) {
-            $coverPath = $this->bookApi->downloadCover($request->cover_url, $book->id);
-            if ($coverPath) {
-                $book->update(['cover' => $coverPath]);
+            if ($validator->fails()) {
+                return redirect()->back()
+                    ->withErrors($validator)
+                    ->withInput();
             }
+
+            $book = Book::create([
+                'kode_buku' => 'BK-' . strtoupper(Str::random(8)),
+                'judul' => $request->judul,
+                'penulis' => $request->penulis,
+                'penerbit' => $request->penerbit,
+                'tahun_terbit' => $request->tahun_terbit,
+                'kategori_id' => $request->kategori_id,
+                'deskripsi' => $request->deskripsi,
+                'stok' => $request->stok,
+                'available_stock' => $request->stok
+            ]);
+
+            // Download cover from API if available
+            if ($request->cover_url && $this->bookApi) {
+                $coverPath = $this->bookApi->downloadCover($request->cover_url, $book->id);
+                if ($coverPath) {
+                    $book->update(['cover' => $coverPath]);
+                }
+            }
+
+            return redirect()->route('books.index')
+                ->with('success', 'Buku berhasil diimport dari API');
+
+        } catch (\Exception $e) {
+            Log::error('Error importing book: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
+    }
 
+    /**
+     * Upload cover image.
+     */
+    private function uploadCover($file)
+    {
+        try {
+            // Generate unique filename
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            
+            // Move file to public/uploads/covers
+            $path = public_path('uploads/covers');
+            if (!file_exists($path)) {
+                mkdir($path, 0755, true);
+            }
+            
+            $file->move($path, $filename);
+            
+            return 'uploads/covers/' . $filename;
+            
+        } catch (\Exception $e) {
+            Log::error('Error uploading cover: ' . $e->getMessage());
+            return null;
+        }
+    }
 
-        return redirect()->route('books.index')
-            ->with('success', 'Buku berhasil diimport dari API');
+    /**
+     * Delete cover image.
+     */
+    private function deleteCover($book)
+    {
+        try {
+            if ($book->cover && file_exists(public_path($book->cover))) {
+                unlink(public_path($book->cover));
+                return true;
+            }
+        } catch (\Exception $e) {
+            Log::error('Error deleting cover: ' . $e->getMessage());
+        }
+        return false;
     }
 }

@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'Sistem Perpustakaan'),
 
     /*
     |--------------------------------------------------------------------------
@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Jakarta'),
 
     /*
     |--------------------------------------------------------------------------
@@ -78,11 +78,11 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'id'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'id'),
 
-    'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
+    'faker_locale' => env('APP_FAKER_LOCALE', 'id_ID'),
 
     /*
     |--------------------------------------------------------------------------
@@ -121,6 +121,37 @@ return [
     'maintenance' => [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Custom Application Settings
+    |--------------------------------------------------------------------------
+    |
+    | Custom settings for the application.
+    |
+    */
+
+    'settings' => [
+        // Upload settings
+        'upload' => [
+            'max_size' => env('UPLOAD_MAX_SIZE', 2048), // KB
+            'allowed_extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+            'cover_path' => 'uploads/covers',
+            'default_cover' => 'images/default-cover.jpg',
+        ],
+        
+        // Book settings
+        'book' => [
+            'prefix' => 'BK-',
+            'max_loan_days' => env('MAX_LOAN_DAYS', 7),
+            'denda_per_day' => env('DENDA_PER_DAY', 5000),
+        ],
+        
+        // Pagination settings
+        'pagination' => [
+            'per_page' => env('PER_PAGE', 10),
+        ],
     ],
 
 ];

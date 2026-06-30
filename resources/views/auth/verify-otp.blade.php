@@ -1,74 +1,68 @@
-@extends('layouts.auth')
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verifikasi OTP</title>
+    <style>
+        .container { max-width: 400px; margin: 50px auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .alert { padding: 10px; margin-bottom: 15px; border-radius: 5px; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { font-size: 14px; color: #666; margin-bottom: 20px; }
+        .resend-link { margin-top: 15px; }
+        .resend-link a { color: #007bff; text-decoration: none; }
+        .resend-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Verifikasi Kode OTP</h2>
+        
+        @if(session('message'))
+            <div class="alert alert-success">{{ session('message') }}</div>
+        @endif
 
-@section('title', 'Verifikasi OTP')
-
-@section('content')
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
-            <div class="card shadow-lg">
-                <div class="card-header bg-warning text-dark text-center py-4">
-                    <h3 class="mb-0"><i class="fas fa-shield-alt"></i> Verifikasi OTP</h3>
-                    <small>Masukkan kode OTP yang dikirim ke email</small>
-                </div>
-                
-                <div class="card-body p-4">
-                    @if(session('success'))
-                        <div class="alert alert-success">{{ session('success') }}</div>
-                    @endif
-                    @if(session('error'))
-                        <div class="alert alert-danger">{{ session('error') }}</div>
-                    @endif
-                    
-                    <form method="POST" action="{{ route('otp.verify') }}">
-                        @csrf
-                        
-                        <div class="mb-4">
-                            <label for="otp" class="form-label">Kode OTP</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-key"></i></span>
-                                <input id="otp" type="text" class="form-control @error('otp') is-invalid @enderror" 
-                                       name="otp" placeholder="Masukkan 6 digit kode" maxlength="6" required>
-                            </div>
-                            @error('otp')
-                                <span class="invalid-feedback d-block">{{ $message }}</span>
-                            @enderror
-                        </div>
-                        
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-warning btn-lg">
-                                <i class="fas fa-check"></i> Verifikasi
-                            </button>
-                        </div>
-                    </form>
-                    
-                    <div class="text-center mt-3">
-                        <p class="mb-2">Tidak menerima kode?</p>
-                        <form method="POST" action="{{ route('otp.resend') }}" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-link text-decoration-none">
-                                <i class="fas fa-redo"></i> Kirim Ulang OTP
-                            </button>
-                        </form>
-                    </div>
-                </div>
+        @if($errors->any())
+            <div class="alert alert-error">
+                @foreach($errors->all() as $error)
+                    <p>{{ $error }}</p>
+                @endforeach
             </div>
+        @endif
+
+        <p class="info">
+            Kode OTP telah dikirim ke <strong>{{ $email }}</strong>.
+            @if($type === 'registration')
+                Silakan verifikasi email Anda untuk menyelesaikan registrasi.
+            @else
+                Silakan masukkan kode OTP untuk menyelesaikan login.
+            @endif
+        </p>
+
+        <form action="{{ route('verify.otp') }}" method="POST">
+            @csrf
+            <input type="hidden" name="type" value="{{ $type }}">
+            
+            <div class="form-group">
+                <label for="otp_code">Kode OTP (6 digit)</label>
+                <input type="text" id="otp_code" name="otp_code" maxlength="6" placeholder="Masukkan 6 digit kode OTP" required>
+            </div>
+
+            <button type="submit">Verifikasi</button>
+        </form>
+
+        <div class="resend-link">
+            <form action="{{ route('resend.otp') }}" method="POST" style="display: inline;">
+                @csrf
+                <input type="hidden" name="type" value="{{ $type }}">
+                <button type="submit" style="background: none; color: #007bff; padding: 0; border: none; cursor: pointer; text-decoration: underline;">
+                    Kirim Ulang OTP
+                </button>
+            </form>
         </div>
     </div>
-</div>
-
-<style>
-    input#otp {
-        font-size: 24px;
-        letter-spacing: 10px;
-        text-align: center;
-        font-weight: bold;
-    }
-    @media (max-width: 576px) {
-        input#otp {
-            font-size: 18px;
-            letter-spacing: 5px;
-        }
-    }
-</style>
-@endsection
+</body>
+</html>
