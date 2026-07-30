@@ -38,17 +38,30 @@ class Transaction extends Model
 
     public function isLate()
     {
-        if ($this->status === 'dikembalikan') {
-            return $this->tanggal_kembali_aktual > $this->tanggal_kembali;
+        $actual = null;
+        if ($this->status === 'dikembalikan' && $this->tanggal_kembali_aktual) {
+            $actual = Carbon::parse($this->tanggal_kembali_aktual)->startOfDay();
+        } else {
+            $actual = Carbon::now()->startOfDay();
         }
-        return Carbon::now() > $this->tanggal_kembali;
+        $due = Carbon::parse($this->tanggal_kembali)->startOfDay();
+        return $actual->greaterThan($due);
     }
 
     public function calculateDenda()
     {
-        if ($this->status === 'dikembalikan' && $this->isLate()) {
-            $daysLate = Carbon::parse($this->tanggal_kembali_aktual)->diffInDays($this->tanggal_kembali);
-            return $daysLate * 5000;
+        $actualReturn = null;
+        if ($this->status === 'dikembalikan' && $this->tanggal_kembali_aktual) {
+            $actualReturn = Carbon::parse($this->tanggal_kembali_aktual)->startOfDay();
+        } else {
+            $actualReturn = Carbon::now()->startOfDay();
+        }
+
+        $due = Carbon::parse($this->tanggal_kembali)->startOfDay();
+
+        if ($actualReturn->greaterThan($due)) {
+            $daysLate = (int) $due->diffInDays($actualReturn);
+            return $daysLate * 1000;
         }
         return 0;
     }

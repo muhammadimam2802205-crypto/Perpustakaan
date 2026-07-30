@@ -1,4 +1,5 @@
 <?php
+
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\BookController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\DendaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\BookRepairController; // ← TAMBAHKAN INI
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -22,7 +24,7 @@ Route::get('/verify-otp', [RegisterController::class, 'showOtpForm'])->name('otp
 Route::post('/verify-otp', [RegisterController::class, 'verifyOtp'])->name('otp.verify');
 Route::post('/resend-otp', [RegisterController::class, 'resendOtp'])->name('otp.resend');
 
-// Login - HANYA SATU KALI
+// Login
 Route::get('/login', function () {
     return view('auth.login');
 })->name('login');
@@ -85,24 +87,52 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('members', MemberController::class);
     });
 
-    // Loans - Semua user
+    // ==============================================================
+    // ============ LOANS ROUTES =====================================
+    // ==============================================================
     Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
     Route::get('/loans/create', [LoanController::class, 'create'])->name('loans.create');
     Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
     Route::get('/loans/{id}', [LoanController::class, 'show'])->name('loans.show');
     Route::post('/loans/{id}/return', [LoanController::class, 'returnBook'])->name('loans.return');
     
-    // Hanya admin yang bisa hapus loan
+    // UPDATE DENDA (ADMIN ONLY)
+    Route::put('/loans/{id}/update-fine', [LoanController::class, 'updateFine'])
+        ->name('loans.updateFine')
+        ->middleware(['check.role:admin']);
+    
+    // Hapus loan (ADMIN ONLY)
     Route::middleware(['check.role:admin'])->group(function () {
         Route::delete('/loans/{id}', [LoanController::class, 'destroy'])->name('loans.destroy');
     });
 
-    // Denda
+    // ==============================================================
+    // ============ DENDA ROUTES =====================================
+    // ==============================================================
     Route::get('/denda', [DendaController::class, 'index'])->name('denda.index');
     Route::get('/denda/{id}/payment', [DendaController::class, 'payment'])->name('denda.payment');
     Route::post('/denda/{id}/confirm', [DendaController::class, 'confirmPayment'])->name('denda.confirm');
 
-    // Transactions (existing)
+    // ==============================================================
+    // ============ BOOK REPAIRS ROUTES ==============================
+    // ==============================================================
+    Route::get('/repairs', [BookRepairController::class, 'index'])->name('repairs.index');
+    Route::get('/repairs/create', [BookRepairController::class, 'create'])->name('repairs.create');
+    Route::post('/repairs', [BookRepairController::class, 'store'])->name('repairs.store');
+    Route::get('/repairs/{id}', [BookRepairController::class, 'show'])->name('repairs.show');
+    
+    // Selesaikan perbaikan (Member & Admin)
+    Route::post('/repairs/{id}/complete', [BookRepairController::class, 'complete'])->name('repairs.complete');
+    
+    // ADMIN ONLY - Kelola Perbaikan
+    Route::middleware(['check.role:admin'])->group(function () {
+        Route::get('/repairs/{id}/edit', [BookRepairController::class, 'edit'])->name('repairs.edit');
+        Route::put('/repairs/{id}', [BookRepairController::class, 'update'])->name('repairs.update');
+        Route::put('/repairs/{id}/update-fine', [BookRepairController::class, 'updateFine'])->name('repairs.updateFine');
+        Route::delete('/repairs/{id}', [BookRepairController::class, 'destroy'])->name('repairs.destroy');
+    });
+
+    // Transactions
     Route::resource('transactions', TransactionController::class);
     Route::post('/transactions/{transaction}/return', [TransactionController::class, 'returnBook'])->name('transactions.return');
 });

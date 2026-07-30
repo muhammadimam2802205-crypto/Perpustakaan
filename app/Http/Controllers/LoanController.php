@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Book;
@@ -20,7 +21,6 @@ class LoanController extends Controller
             $loans = Loan::with(['book'])->where('user_id', $user->id)->orderBy('created_at', 'desc')->paginate(10);
         }
 
-        // Update status loans yang terlambat
         foreach ($loans as $loan) {
             $loan->updateStatus();
         }
@@ -46,7 +46,6 @@ class LoanController extends Controller
             return back()->with('error', 'Buku tidak tersedia');
         }
 
-        // Cek apakah user sudah meminjam buku ini
         $existingLoan = Loan::where('user_id', Auth::id())
                             ->where('book_id', $book->id)
                             ->whereIn('status', ['dipinjam', 'terlambat'])
@@ -62,14 +61,41 @@ class LoanController extends Controller
             'borrow_date' => Carbon::now(),
             'due_date' => Carbon::now()->addDays(7),
             'status' => 'dipinjam',
-            'payment_status' => 'belum_bayar'
+            'fine_amount' => 0,
+            'payment_status' => null,
         ]);
 
-        // Kurangi stock
+        $loan->updateStatus();
+
         $book->decrementStock();
 
         return redirect()->route('loans.index')
                         ->with('success', 'Peminjaman berhasil! Batas pengembalian: ' . $loan->due_date->format('d/m/Y'));
+    }
+
+    public function updateFine(Request $request, $id)
+    {
+        if (!Auth::user()->isAdmin()) {
+            abort(403, 'Hanya admin yang bisa mengubah denda.');
+        }
+
+        $loan = Loan::findOrFail($id);
+
+        $request->validate([
+            'fine_amount' => 'required|integer|min:0',
+        ]);
+
+        $loan->fine_amount = $request->fine_amount;
+
+        if ($loan->fine_amount > 0) {
+            $loan->payment_status = 'belum_bayar';
+        } else {
+            $loan->payment_status = null;
+        }
+
+        $loan->save();
+
+        return redirect()->back()->with('success', '💸 Denda berhasil diperbarui!');
     }
 
     public function returnBook($id)
@@ -86,33 +112,45 @@ class LoanController extends Controller
 
         $loan->return_date = Carbon::now();
         $loan->status = 'dikembalikan';
-        $loan->fine_amount = $loan->calculateFine();
-        
-        if ($loan->fine_amount > 0) {
+
+        $dueDate = Carbon::parse($loan->due_date)->startOfDay();
+        $returnDate = Carbon::now()->startOfDay();
+
+        if ($returnDate->greaterThan($dueDate)) {
+            $hariTelat = $dueDate->diffInDays($returnDate);
+            $loan->fine_amount = $hariTelat * 1000;
             $loan->payment_status = 'belum_bayar';
+        } else {
+            if ($loan->fine_amount == 0) {
+                $loan->payment_status = null;
+            }
         }
 
         $loan->save();
 
-        // Tambah stock
         $book = $loan->book;
         $book->incrementStock();
 
-        return redirect()->route('loans.index')
-                        ->with('success', 'Buku berhasil dikembalikan' . 
-                               ($loan->fine_amount > 0 ? '. Denda: Rp ' . number_format($loan->fine_amount, 0, ',', '.') : ''));
+        $message = '✅ Buku berhasil dikembalikan';
+        if ($loan->fine_amount > 0) {
+            $message .= '. 💰 Denda: Rp ' . number_format($loan->fine_amount, 0, ',', '.');
+        }
+
+        return redirect()->route('loans.index')->with('success', $message);
     }
 
     public function show($id)
-{
-    $loan = Loan::with(['user', 'book'])->findOrFail($id);
-    
-    if ($loan->user_id != Auth::id() && !Auth::user()->isAdmin()) {
-        abort(403, 'Anda tidak memiliki akses ke data ini');
-    }
+    {
+        $loan = Loan::with(['user', 'book'])->findOrFail($id);
+        
+        if ($loan->user_id != Auth::id() && !Auth::user()->isAdmin()) {
+            abort(403, 'Anda tidak memiliki akses ke data ini');
+        }
 
-    return view('loans.show', compact('loan'));
-}
+        $loan->updateStatus();
+
+        return view('loans.show', compact('loan'));
+    }
 
     public function destroy($id)
     {

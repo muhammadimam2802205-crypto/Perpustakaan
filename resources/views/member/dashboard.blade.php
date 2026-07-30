@@ -97,6 +97,9 @@
                                             <span class="badge badge-warning">Hari ini</span>
                                         @else
                                             <span class="badge badge-danger">{{ abs($daysRemaining) }} hari terlambat</span>
+                                            @if($loan->fine_amount > 0)
+                                                <br><small class="text-danger">Denda: Rp {{ number_format($loan->fine_amount, 0, ',', '.') }}</small>
+                                            @endif
                                         @endif
                                     </td>
                                     <td>
@@ -165,16 +168,23 @@
                                     <td>{{ $loan->borrow_date->format('d/m/Y') }}</td>
                                     <td>{{ $loan->return_date ? $loan->return_date->format('d/m/Y') : '-' }}</td>
                                     <td>
-                                        @if($loan->fine_amount > 0)
-                                            <span class="text-danger">Rp {{ number_format($loan->fine_amount, 0, ',', '.') }}</span>
-                                            @if($loan->payment_status == 'belum_bayar')
-                                                <span class="badge badge-danger">Belum Bayar</span>
-                                            @else
-                                                <span class="badge badge-success">Lunas</span>
-                                            @endif
-                                        @else
-                                            <span class="text-success">Rp 0</span>
-                                        @endif
+                                         @if($loan->fine_amount > 0)
+                                             <span class="text-danger">Rp {{ number_format($loan->fine_amount, 0, ',', '.') }}</span>
+                                             @php
+                                                 $hariTelat = $loan->getDaysLate();
+                                             @endphp
+                                             @if($hariTelat > 0)
+                                                 <br><small class="text-muted">({{ $hariTelat }} hari terlambat)</small>
+                                             @endif
+                                             <br>
+                                             @if($loan->payment_status == 'belum_bayar')
+                                                 <span class="badge badge-danger">Belum Bayar</span>
+                                             @else
+                                                 <span class="badge badge-success">Lunas</span>
+                                             @endif
+                                         @else
+                                             <span class="text-success">Rp 0</span>
+                                         @endif
                                     </td>
                                     <td>
                                         <span class="badge badge-{{ $loan->status == 'dikembalikan' ? 'success' : 'danger' }}">
